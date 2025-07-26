@@ -25,6 +25,27 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   parent: storage
   name: 'default/billing-archive'
 }
+resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2021-04-01' = {
+  parent: stg
+  name: 'default'
+  properties: {
+    policy: {
+      rules: [
+        {
+          enabled: true
+          name: 'tier-to-cool'
+          type: 'Lifecycle'
+          definition: {
+            actions: {
+              baseBlob: { tierToCool: { daysAfterModificationGreaterThan: 30 } }
+            }
+          }
+          filters: { blobTypes: ['blockBlob'], prefixMatch: [''] }
+        }
+      ]
+    }
+  }
+}
 
 
 Add lifecycle policy in same Bicep to tier blobs older than 30 days to Cool or Cold tier
