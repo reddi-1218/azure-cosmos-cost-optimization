@@ -1,0 +1,104 @@
+Deploys your Cosmos DB, Blob Storage, and Function Apps via Bicep.
+
+  name: Deploy Azure Infrastructure
+
+on:
+  push:
+    paths:
+      - 'infra/'
+      - '.github/workflows/deploy-infra.yml'
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+
+    env:
+      AZURE_RESOURCE_GROUP: cosmos-cost-opt
+      AZURE_LOCATION: eastus
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Cosmos & Storage
+        run: |
+          az deployment group create \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --template-file infra/cosmos.bicep
+
+          az deployment group create \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --template-file infra/storage.bicep
+
+          az deployment group create \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --template-file infra/function-apps.bicep
+
+
+Deploys both Azure Functions: archive_function and read_api.
+
+  name: Deploy Azure Functions
+
+on:
+  push:
+    paths:
+      - 'archive_function/'
+      - 'read_api/'
+      - '.github/workflows/deploy-functions.yml'
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        function:
+          - name: archive-function
+            path: archive_function
+          - name: read-api
+            path: read_api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r ${{ matrix.function.path }}/requirements.txt
+
+      - name: Deploy Function App
+        run: |
+          func azure functionapp publish ${{ matrix.function.name }} \
+            --python \
+            --nozip
+
+
+
+
+
+          Optional: Parameters or Secrets as Variables
+Use GitHub repo secrets for the following:
+
+AZURE_CREDENTIALS – SPN JSON from az ad sp create-for-rbac
+
+COSMOS_URI, COSMOS_KEY (or better: use Azure App Config or Key Vault)
+  
+
+
+
+
+          
