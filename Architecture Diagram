@@ -1,0 +1,32 @@
+                     ┌────────────────────────┐
+                     │     Client / Frontend  │
+                     └────────────┬───────────┘
+                                  │
+                            [Unified API Layer]
+                                  │
+          ┌──────────────────────┴──────────────────────┐
+          │                                             │
+ ┌────────▼────────┐                          ┌─────────▼────────┐
+ │ Azure Functions │                          │ Azure Functions  │
+ │ (Read/Write API)│                          │ (Archive Router) │
+ └──────┬──────────┘                          └─────────┬────────┘
+        │                                              │
+ ┌──────▼───────┐                              ┌───────▼────────┐
+ │ Cosmos DB    │   <-- Recent Records (≤ 3M)  │ Azure Blob     │
+ │ (Serverless) │                              │ Storage (Cold) │
+ └──────────────┘   >3M archived records ----> │ (Hot/Cool Tier)│
+                                                └───────────────┘
+
+
+
+Client → API Gateway → Azure Function (Unified Read API)
+                              ↓
+                      +---------------+
+                      |  Cosmos DB    | ← Hot Data (< 3 months)
+                      +---------------+
+                              ↓
+                      +---------------+
+                      | Blob Storage  | ← Cold Data (≥ 3 months)
+                      +---------------+
+                              ↑
+                 (via Azure Data Factory or Durable Function)
