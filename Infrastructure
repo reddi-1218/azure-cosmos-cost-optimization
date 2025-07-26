@@ -1,0 +1,40 @@
+cosmos.bicep
+
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2021-10-15' = {
+  name: 'billing-cosmos'
+  kind: 'GlobalDocumentDB'
+  sku: { name: 'Serverless' }
+  properties: { defaultConsistencyLevel: 'Session' }
+}
+resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2021-10-15' = {
+  parent: cosmos
+  name: 'billingDb/billing'
+  properties: { partitionKey: { paths: ['/partitionKey'] } }
+}
+
+
+storage.bicep
+
+resource storage 'Microsoft.Storage/storageAccounts@2021-09-01' = {
+  name: 'billingarchive'
+  sku: { name: 'Standard_LRS' }
+  kind: 'StorageV2'
+  properties: { accessTier: 'Hot' }
+}
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2021-09-01' = {
+  parent: storage
+  name: 'default/billing-archive'
+}
+
+
+Add lifecycle policy in same Bicep to tier blobs older than 30 days to Cool or Cold tier
+function-apps.bicep
+Deploy both Function Apps using Consumption plan, wiring settings for Cosmos and Blob.
+
+ Why This Approach Works
+Move cold data from Cosmos DB to Azure Blob Storage, dramatically reducing storage RUs and cost (Blob cold tier ~64% cheaper than Cosmos)
+Preserve point-read semantics: API unchanged, latency still seconds.
+No downtime: archive job and read logic operate in parallel.
+Data safe: actual deletion only after upload confirmation.
+Scalable: functions autoscale, Data Factory alternative for large bulk initial load.
+Optionally, you may use Cosmos DB Change Feed to maintain a duplicate archive stream if writes also need to be archived as they arrive—and then TTL older records once archived
